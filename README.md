@@ -4,11 +4,11 @@
 
 [![GitHub issues](https://img.shields.io/github/issues/boy-hack/w13scan)](https://github.com/boy-hack/w13scan/issues)  [![GitHub stars](https://img.shields.io/github/stars/boy-hack/w13scan)](https://github.com/boy-hack/w13scan/stargazers) [![GitHub forks](https://img.shields.io/github/forks/boy-hack/w13scan)](https://github.com/boy-hack/w13scan/network) [![GitHub license](https://img.shields.io/github/license/boy-hack/w13scan)](https://github.com/boy-hack/w13scan/blob/master/LICENSE)
 
-![Jietu20200516-184214](./doc/Jietu20200516-184214.jpg)
+![Jietu20200516-184214](./doc/logo.jpg)
 
 ## 声明
 
-使用W13Scan前请遵守当地法律,W13Scan仅提供给授权的渗透测试以及教育行为使用。
+使用W13Scan前请遵守当地法律,W13Scan仅提供给教育行为使用。
 
 ## 特点
 相比于其他专业的扫描工具，w13scan也有自己独有的优点。
@@ -66,7 +66,7 @@ python3 w13scan.py -h
 ### 被动扫描
 
 ```
-python3 w13scan.py -s 127.0.0.1:8887 --html # 端口可省略，默认为8887,开启--html即实时生成html报告
+python3 w13scan.py -s 127.0.0.1:7778 --html # 端口可省略，默认为7778,开启--html即实时生成html报告
 ```
 
 #### HTTPS支持
