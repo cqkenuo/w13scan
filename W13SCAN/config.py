@@ -7,11 +7,11 @@
 # Default setting
 THREAD_NUM = 31  # 线程数量
 
-EXCLUDES = ["google", "lastpass", '.gov.cn']  # 扫描排除网址
+EXCLUDES = ["google", "lastpass", '.gov.']  # 扫描排除网址
 
 RETRY = 2  # 超时重试次数
 TIMEOUT = 10  # 超时时间
-LEVEL = 2  # 发包等级
+LEVEL = 3  # 发包等级
 
 # 所有扫描请求可以转发到另外一个代理上
 PROXY_CONFIG_BOOL = False
@@ -21,6 +21,8 @@ PROXY_CONFIG = {
 }
 ABLE = []  # 允许使用的插件
 DISABLE = []  # 不允许使用的插件
+
+XSS_LIMIT_CONTENT_TYPE = True  # 限制xss的content-type，为True时限制content-type为html，为False不限制
 
 # DEBUG
 DEBUG = False

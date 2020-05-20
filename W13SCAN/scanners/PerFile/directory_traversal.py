@@ -96,7 +96,7 @@ class W13SCAN(PluginBase):
 
         regexArray = [
             '(Linux+\sversion\s+[\d\.\w\-_\+]+\s+\([^)]+\)\s+\(gcc\sversion\s[\d\.\-_]+\s)',
-            '(root:.*:.*:)',
+            '(root:\w:\d*:)',
             "System\.IO\.FileNotFoundException: Could not find file\s'\w:",
             "System\.IO\.DirectoryNotFoundException: Could not find a part of the path\s'\w:",
             "<b>Warning<\/b>:\s\sDOMDocument::load\(\)\s\[<a\shref='domdocument.load'>domdocument.load<\/a>\]:\s(Start tag expected|I\/O warning : failed to load external entity).*(Windows\/win.ini|\/etc\/passwd).*\sin\s<b>.*?<\/b>\son\sline\s<b>\d+<\/b>",
@@ -105,10 +105,10 @@ class W13SCAN(PluginBase):
             "open_basedir restriction in effect"
         ]
         iterdatas = self.generateItemdatas()
-        payloads = self.generate_payloads()
+        _payloads = self.generate_payloads()
 
         for origin_dict, positon in iterdatas:
-            payloads = self.paramsCombination(origin_dict, positon, payloads)
+            payloads = self.paramsCombination(origin_dict, positon, _payloads)
             for key, value, new_value, payload in payloads:
                 r = self.req(positon, payload)
                 if not r:

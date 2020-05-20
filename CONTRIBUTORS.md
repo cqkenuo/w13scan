@@ -2,7 +2,10 @@
 boy-hack <https://github.com/boy-hack>
 * for contributing core code
 
-@Garlic
+@LoRexxar'
+* 给了很多修改意见
+
+@Jinone
 * 提供了用于寻找更多参数的提取思路
 
 @longgo

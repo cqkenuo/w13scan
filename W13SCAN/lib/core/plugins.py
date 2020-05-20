@@ -56,19 +56,22 @@ class PluginBase(object):
     def audit(self):
         raise NotImplementedError
 
-    def generateItemdatas(self):
+    def generateItemdatas(self, params=None):
         iterdatas = []
         if self.requests.method == HTTPMETHOD.GET:
-            iterdatas.append((self.requests.params, PLACE.GET))
+            _params = params or self.requests.params
+            iterdatas.append((_params, PLACE.GET))
         elif self.requests.method == HTTPMETHOD.POST:
-            iterdatas.append((self.requests.post_data, PLACE.POST))
+            _params = params or self.requests.post_data
+            iterdatas.append((_params, PLACE.POST))
         if conf.level >= 3:
-            iterdatas.append((self.requests.cookies, PLACE.COOKIE))
+            _params = self.requests.cookies
+            iterdatas.append((_params, PLACE.COOKIE))
         # if conf.level >= 4:
         #     # for uri
         #     iterdatas.append((self.requests.url, PLACE.URI))
         return iterdatas
-    
+
     def paramsCombination(self, data: dict, place=PLACE.GET, payloads=[], hint=POST_HINT.NORMAL, urlsafe='/\\'):
         """
         组合dict参数,将相关类型参数组合成requests认识的,防止request将参数进行url转义
@@ -125,10 +128,16 @@ class PluginBase(object):
         elif positon == PLACE.POST:
             r = requests.post(self.requests.url, data=params, headers=self.requests.headers)
         elif positon == PLACE.COOKIE:
+            headers = self.requests.headers
+            if 'Cookie' in headers:
+                del headers["Cookie"]
+            if 'cookie' in headers:
+                del headers["cookie"]
+
             if self.requests.method == HTTPMETHOD.GET:
-                r = requests.get(self.requests.url, headers=self.requests.headers, cookies=params)
+                r = requests.get(self.requests.url, headers=headers, cookies=params)
             elif self.requests.method == HTTPMETHOD.POST:
-                r = requests.post(self.requests.url, data=self.requests.post_data, headers=self.requests.headers,
+                r = requests.post(self.requests.url, data=self.requests.post_data, headers=headers,
                                   cookies=params)
         elif positon == PLACE.URI:
             r = requests.get(params, headers=self.requests.headers)
@@ -208,9 +217,8 @@ class PluginBase(object):
                 errMsg += '\n\nrequest raw:\n'
                 errMsg += request.raw
             excMsg = traceback.format_exc()
-            if conf.debug:
-                dataToStdout('\r' + errMsg + '\n\r')
-                dataToStdout('\r' + excMsg + '\n\r')
+            dataToStdout('\r' + errMsg + '\n\r')
+            dataToStdout('\r' + excMsg + '\n\r')
             if createGithubIssue(errMsg, excMsg):
                 dataToStdout('\r' + "[x] a issue has reported" + '\n\r')
 

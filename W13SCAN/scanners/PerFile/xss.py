@@ -4,13 +4,15 @@
 # @Author  : w8ay
 # @File    : xss.py
 import copy
+import random
 import re
 import string
 from urllib.parse import unquote
 
 import requests
 
-from lib.core.common import random_str, generateResponse
+from lib.core.common import random_str, generateResponse, url_dict2str
+from lib.core.data import conf
 from lib.core.enums import HTTPMETHOD, PLACE, VulType
 from lib.core.output import ResultObject
 from lib.core.plugins import PluginBase
@@ -26,37 +28,63 @@ class W13SCAN(PluginBase):
         self.result = ResultObject(self)
         self.result.init_info(self.requests.url, "XSS脚本注入", VulType.XSS)
 
+    def getSSTIPayload(self, randint1=444, randint2=666) -> list:
+        '''
+        顺便检测下模板注入～
+        return ['{123*1111}', '<%=123*1111%>', '#{123*1111}', '${{123*1111}}', '{{123*1111}}', '{{= 123*1111}}', '<# 123*1111>', '{@123*1111}', '[[123*1111]]', '${{"{{"}}123*1111{{"}}"}}']
+
+        :return: list
+        '''
+        r = []
+        payloads = [
+            "{%d*%d}",
+            "<%%=%d*%d%%>",
+            "#{%d*%d}",
+            "${{%d*%d}}",
+            "{{%d*%d}}",
+            "{{= %d*%d}}",
+            "<# %d*%d>",
+            "{@%d*%d}",
+            "[[%d*%d]]",
+            "${{\"{{\"}}%d*%d{{\"}}\"}}",
+        ]
+        for item in payloads:
+            r.append(
+                item % (randint1, randint2)
+            )
+        return r
+
     def audit(self):
 
         parse_params = set(getParamsFromHtml(self.response.text))
         resp = self.response.text
         params_data = {}
+        self.init()
+        iterdatas = []
         if self.requests.method == HTTPMETHOD.GET:
             parse_params = (parse_params | TOP_RISK_GET_PARAMS) - set(self.requests.params.keys())
             for key in parse_params:
                 params_data[key] = random_str(6)
             params_data.update(self.requests.params)
             resp = requests.get(self.requests.netloc, params=params_data, headers=self.requests.headers).text
+            iterdatas = self.generateItemdatas(params_data)
         elif self.requests.method == HTTPMETHOD.POST:
             parse_params = (parse_params) - set(self.requests.post_data.keys())
             for key in parse_params:
                 params_data[key] = random_str(6)
             params_data.update(self.requests.post_data)
             resp = requests.post(self.requests.url, data=params_data, headers=self.requests.headers).text
-
-        self.init()
-        iterdatas = self.generateItemdatas()
+            iterdatas = self.generateItemdatas(params_data)
 
         for origin_dict, positon in iterdatas:
             # 先不支持uri上的xss，只支持get post cookie上的xss
             if positon == PLACE.URI:
                 continue
             for k, v in origin_dict.items():
-                data = copy.deepcopy(origin_dict)
                 v = unquote(v)
                 if v not in resp:
                     continue
-
+                data = copy.deepcopy(origin_dict)
                 # 探测回显
                 xsschecker = "0x" + random_str(6, string.digits + "abcdef")
                 data[k] = xsschecker
@@ -65,8 +93,10 @@ class W13SCAN(PluginBase):
                 if not re.search(xsschecker, r1.text, re.I):
                     continue
                 html_type = r1.headers.get("Content-Type", "").lower()
-                # if 'html' not in html_type:
-                #     continue
+
+                XSS_LIMIT_CONTENT_TYPE = conf.XSS_LIMIT_CONTENT_TYPE
+                if XSS_LIMIT_CONTENT_TYPE and 'html' not in html_type:
+                    continue
 
                 # 反射位置查找
                 locations = SearchInputInResponse(xsschecker, r1.text)
@@ -136,8 +166,8 @@ class W13SCAN(PluginBase):
                             req = self.req(positon, data)
                             _locations = SearchInputInResponse(flag, req.text)
                             for i in _locations:
-                                for k, v in i["details"]["attibutes"]:
-                                    if k == flag:
+                                for _k, v in i["details"]["attibutes"]:
+                                    if _k == flag:
                                         self.result.add_detail("可自定义任意标签事件", req.reqinfo, generateResponse(req),
                                                                "可以自定义类似 'onmouseover=prompt(1)'的标签事件,注意返回格式为:" + html_type,
                                                                k, payload,
@@ -153,8 +183,8 @@ class W13SCAN(PluginBase):
                                 req = self.req(positon, data)
                                 _occerens = SearchInputInResponse(flag, req.text)
                                 for i in _occerens:
-                                    for k, v in i["details"]["attibutes"]:
-                                        if k == flag:
+                                    for _k, _v in i["details"]["attibutes"]:
+                                        if _k == flag:
                                             self.result.add_detail("引号可被闭合，可使用其他事件造成xss", req.reqinfo,
                                                                    generateResponse(req),
                                                                    "可使用payload:{},注意返回格式为:{}".format(truepayload,
@@ -350,6 +380,40 @@ class W13SCAN(PluginBase):
                                                                                                     html_type), k,
                                                                    data[k], positon)
                                             break
+
+                # ssti检测
+                randnum1 = random.randint(50, 500)
+                randnum2 = random.randint(80, 400)
+                checksum = str(randnum1 * randnum2)
+                ssti_payloads = self.getSSTIPayload(randnum1, randnum2)
+                for payload in ssti_payloads:
+                    data[k] = payload
+                    # 不编码请求
+                    r1 = self.req(positon, url_dict2str(data, positon))
+                    if checksum in r1.text:
+                        result = self.new_result()
+                        result.init_info(self.requests.url, "SSTI模板注入", VulType.XSS)
+                        result.add_detail("payload请求", r1.reqinfo, generateResponse(r1),
+                                          "payload:{} 会回显{} 不编码payload".format(payload, checksum), k, payload, positon)
+                        self.success(result)
+                    # url编码请求
+                    r1 = self.req(positon, data)
+                    if checksum in r1.text:
+                        result = self.new_result()
+                        result.init_info(self.requests.url, "SSTI模板注入", VulType.XSS)
+                        result.add_detail("payload请求", r1.reqinfo, generateResponse(r1),
+                                          "payload:{} 会回显{} url编码payload".format(payload, checksum), k, payload,
+                                          positon)
+                        self.success(result)
+                    # html编码请求
+                    r1 = self.req(positon, data)
+                    if checksum in r1.text:
+                        result = self.new_result()
+                        result.init_info(self.requests.url, "SSTI模板注入", VulType.XSS)
+                        result.add_detail("payload请求", r1.reqinfo, generateResponse(r1),
+                                          "payload:{} 会回显{} html编码payload".format(payload, checksum), k, payload,
+                                          positon)
+                        self.success(result)
 
         if len(self.result.detail) > 0:
             self.success(self.result)
